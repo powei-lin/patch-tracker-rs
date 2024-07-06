@@ -8,13 +8,13 @@ use std::ops::AddAssign;
 use crate::{image_utilities, patch};
 
 #[derive(Default)]
-pub struct FrameToFrameOpticalFlow<const N: u32> {
+pub struct PatchTracker<const N: u32> {
     last_keypoint_id: usize,
     pub tracked_points_map: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid: Vec<GrayImage>,
     initialized: bool,
 }
-impl<const LEVELS: u32> FrameToFrameOpticalFlow<LEVELS> {
+impl<const LEVELS: u32> PatchTracker<LEVELS> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
         const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Nearest;
         // const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;

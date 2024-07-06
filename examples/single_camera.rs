@@ -1,7 +1,7 @@
 use ab_glyph::{FontRef, PxScale};
 use glob::glob;
 use image::io::Reader as ImageReader;
-use patch_tracker::FrameToFrameOpticalFlow;
+use patch_tracker::PatchTracker;
 
 use image::Rgb;
 use imageproc::drawing::{draw_cross_mut, draw_text_mut};
@@ -21,30 +21,26 @@ struct Args {
     folder: String,
 }
 
-
 #[show_image::main]
 fn main() {
-
     let args = Args::parse();
-
 
     let path = args.folder;
     let path_list: Vec<PathBuf> = glob(format!("{}/*.png", path).as_str())
         .expect("Failed to read glob pattern")
         .filter_map(Result::ok)
         .collect();
-    if path_list.len() == 0{
+    if path_list.len() == 0 {
         println!("there's no png in this folder.");
         return;
     }
-    let mut point_tracker = FrameToFrameOpticalFlow::<4>::default();
+    let mut point_tracker = PatchTracker::<4>::default();
 
     const FPS: u32 = 30;
     let window = create_window("image", Default::default()).unwrap();
-    let mut i = 800;
+    let mut i = 0;
 
     for event in window.event_channel().unwrap() {
-
         let start = Instant::now();
         let curr_img = ImageReader::open(&path_list[i]).unwrap().decode().unwrap();
         let curr_img_luma8 = curr_img.to_luma8();
@@ -84,7 +80,7 @@ fn main() {
             );
         }
         let output_name = format!("output/{:05}.png", i);
-        curr_img_rgb.save(output_name);  
+        curr_img_rgb.save(output_name);
 
         window.set_image("image-001", curr_img_rgb).unwrap();
         if let event::WindowEvent::KeyboardInput(event) = event {
