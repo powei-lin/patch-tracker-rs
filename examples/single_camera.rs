@@ -37,13 +37,14 @@ fn main() {
         println!("there's no png in this folder.");
         return;
     }
-    let mut point_tracker = FrameToFrameOpticalFlow::<3>::default();
+    let mut point_tracker = FrameToFrameOpticalFlow::<4>::default();
 
     const FPS: u32 = 30;
     let window = create_window("image", Default::default()).unwrap();
-    let mut i = 0;
+    let mut i = 800;
 
     for event in window.event_channel().unwrap() {
+
         let start = Instant::now();
         let curr_img = ImageReader::open(&path_list[i]).unwrap().decode().unwrap();
         let curr_img_luma8 = curr_img.to_luma8();
@@ -82,6 +83,8 @@ fn main() {
                 &text,
             );
         }
+        let output_name = format!("output/{:05}.png", i);
+        curr_img_rgb.save(output_name);  
 
         window.set_image("image-001", curr_img_rgb).unwrap();
         if let event::WindowEvent::KeyboardInput(event) = event {
