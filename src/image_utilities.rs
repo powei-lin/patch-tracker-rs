@@ -134,7 +134,7 @@ pub fn detect_key_points(
             let mut points_added = 0;
             let mut threshold: u8 = 40;
 
-            while points_added < num_points_in_cell && threshold >= 2 {
+            while points_added < num_points_in_cell && threshold >= 20 {
                 let mut fast_corners = corners_fast9(&image_view, threshold);
                 fast_corners.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
 
@@ -149,7 +149,7 @@ pub fn detect_key_points(
                         points_added += 1;
                     }
                 }
-                threshold /= 2;
+                threshold -= 5;
             }
         }
     }
