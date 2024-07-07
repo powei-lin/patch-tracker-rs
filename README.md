@@ -13,3 +13,6 @@ point_tracker.process_frame(&img_luma8);
 
 * [TUM Visual-Inertial Dataset](https://cvg.cit.tum.de/data/datasets/visual-inertial-dataset)
 <img src="docs/tum_vi.avif" width="600" alt="Slow down for show case.">
+
+* [The UZH FPV Dataset](https://fpv.ifi.uzh.ch/datasets)
+<img src="docs/uzh.avif" width="600" alt="Slow down for show case.">
