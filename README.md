@@ -1,4 +1,5 @@
 # patch-tracker-rs
+[![crate](https://img.shields.io/crates/v/patch-tracker.svg)](https://crates.io/crates/patch-tracker)
 
 ```rust
 use patch_tracker::PatchTracker;
