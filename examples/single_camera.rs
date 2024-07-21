@@ -80,7 +80,7 @@ fn main() {
             );
         }
         let output_name = format!("output/{:05}.png", i);
-        curr_img_rgb.save(output_name);
+        let _ = curr_img_rgb.save(output_name);
 
         window.set_image("image-001", curr_img_rgb).unwrap();
         if let event::WindowEvent::KeyboardInput(event) = event {
