@@ -81,9 +81,8 @@ impl Pattern52 {
         let mut grad_sum_se2 = na::SVector::<f32, 3>::zeros();
 
         let mut jw_se2 = na::SMatrix::<f32, 2, 3>::identity();
-        let mut i = 0;
 
-        for pattern_pos in Self::PATTERN_RAW {
+        for (i, pattern_pos) in Self::PATTERN_RAW.into_iter().enumerate() {
             let p = self.pos
                 + na::SVector::<f32, 2>::new(
                     pattern_pos[0] / self.pattern_scale_down,
@@ -104,7 +103,6 @@ impl Pattern52 {
             } else {
                 self.data[i] = -1.0;
             }
-            i += 1;
         }
 
         self.mean = sum / num_valid_points as f32;

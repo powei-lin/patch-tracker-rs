@@ -38,10 +38,12 @@ fn main() {
 
     const FPS: u32 = 30;
     let window = create_window("image", Default::default()).unwrap();
-    let mut i = 0;
 
-    for event in window.event_channel().unwrap() {
+    for (i, event) in window.event_channel().unwrap().into_iter().enumerate() {
         let start = Instant::now();
+        if i >= path_list.len() {
+            break;
+        }
         let curr_img = ImageReader::open(&path_list[i]).unwrap().decode().unwrap();
         let curr_img_luma8 = curr_img.to_luma8();
 
@@ -97,6 +99,5 @@ fn main() {
         if let Some(rest) = one_frame.checked_sub(duration) {
             ::std::thread::sleep(rest);
         }
-        i += 1;
     }
 }
