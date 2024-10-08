@@ -92,8 +92,8 @@ impl Pattern52 {
             jw_se2[(0, 2)] = -pattern_pos[1] / self.pattern_scale_down;
             jw_se2[(1, 2)] = pattern_pos[0] / self.pattern_scale_down;
 
-            if image_utilities::inbound(&greyscale_image, p.x, p.y, 2) {
-                let val_grad = image_utilities::image_grad(&greyscale_image, p.x, p.y);
+            if image_utilities::inbound(greyscale_image, p.x, p.y, 2) {
+                let val_grad = image_utilities::image_grad(greyscale_image, p.x, p.y);
 
                 self.data[i] = val_grad[0];
                 sum += val_grad[0];
@@ -136,22 +136,19 @@ impl Pattern52 {
         let h_se2 = j_se2.transpose() * j_se2;
         let mut h_se2_inv = na::SMatrix::<f32, 3, 3>::identity();
 
-        match h_se2.cholesky() {
-            Some(x) => {
-                x.solve_mut(&mut h_se2_inv);
-                p.h_se2_inv_j_se2_t = h_se2_inv * j_se2.transpose();
+        if let Some(x) = h_se2.cholesky() {
+            x.solve_mut(&mut h_se2_inv);
+            p.h_se2_inv_j_se2_t = h_se2_inv * j_se2.transpose();
 
-                // NOTE: while it's very unlikely we get a source patch with all black
-                // pixels, since points are usually selected at corners, it doesn't cost
-                // much to be safe here.
+            // NOTE: while it's very unlikely we get a source patch with all black
+            // pixels, since points are usually selected at corners, it doesn't cost
+            // much to be safe here.
 
-                // all-black patch cannot be normalized; will result in mean of "zero" and
-                // H_se2_inv_J_se2_T will contain "NaN" and data will contain "inf"
-                p.valid = p.mean > f32::EPSILON
-                    && p.h_se2_inv_j_se2_t.iter().all(|x| x.is_finite())
-                    && p.data.iter().all(|x| x.is_finite());
-            }
-            None => {}
+            // all-black patch cannot be normalized; will result in mean of "zero" and
+            // H_se2_inv_J_se2_T will contain "NaN" and data will contain "inf"
+            p.valid = p.mean > f32::EPSILON
+                && p.h_se2_inv_j_se2_t.iter().all(|x| x.is_finite())
+                && p.data.iter().all(|x| x.is_finite());
         }
 
         p

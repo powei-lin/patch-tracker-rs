@@ -55,9 +55,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
         const GRID_SIZE: u32 = 50;
         let num_points_in_cell = 1;
         let current_corners: Vec<Corner> = self
-            .tracked_points_map
-            .iter()
-            .map(|(_, v)| {
+            .tracked_points_map.values().map(|v| {
                 Corner::new(
                     v.matrix().m13.round() as u32,
                     v.matrix().m23.round() as u32,

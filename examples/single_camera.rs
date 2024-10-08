@@ -30,7 +30,7 @@ fn main() {
         .expect("Failed to read glob pattern")
         .filter_map(Result::ok)
         .collect();
-    if path_list.len() == 0 {
+    if path_list.is_empty() {
         println!("there's no png in this folder.");
         return;
     }
