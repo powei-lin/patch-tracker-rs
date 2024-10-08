@@ -67,7 +67,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             .collect();
         // let curr_img_luma8 = DynamicImage::ImageLuma16(grayscale_image.clone()).into_luma8();
         let new_points = image_utilities::detect_key_points(
-            &grayscale_image,
+            grayscale_image,
             GRID_SIZE,
             &current_corners,
             num_points_in_cell,
@@ -88,24 +88,24 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
         // }
     }
     fn track_points(
-        image_pyramid0: &Vec<GrayImage>,
-        image_pyramid1: &Vec<GrayImage>,
+        image_pyramid0: &[GrayImage],
+        image_pyramid1: &[GrayImage],
         transform_maps0: &HashMap<usize, na::Affine2<f32>>,
     ) -> HashMap<usize, na::Affine2<f32>> {
         let transform_maps1: HashMap<usize, na::Affine2<f32>> = transform_maps0
             .par_iter()
             .filter_map(|(k, v)| {
-                if let Some(new_v) = Self::track_one_point(&image_pyramid0, &image_pyramid1, v) {
+                if let Some(new_v) = Self::track_one_point(image_pyramid0, image_pyramid1, v) {
                     // return Some((k.clone(), new_v));
                     if let Some(old_v) =
-                        Self::track_one_point(&image_pyramid1, &image_pyramid0, &new_v)
+                        Self::track_one_point(image_pyramid1, image_pyramid0, &new_v)
                     {
                         if (v.matrix() - old_v.matrix())
                             .fixed_view::<2, 1>(0, 2)
                             .norm_squared()
                             < 0.4
                         {
-                            return Some((k.clone(), new_v));
+                            return Some((*k, new_v));
                         }
                     }
                 }
@@ -116,8 +116,8 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
         transform_maps1
     }
     fn track_one_point(
-        image_pyramid0: &Vec<GrayImage>,
-        image_pyramid1: &Vec<GrayImage>,
+        image_pyramid0: &[GrayImage],
+        image_pyramid1: &[GrayImage],
         transform0: &na::Affine2<f32>,
     ) -> Option<na::Affine2<f32>> {
         let mut patch_valid = true;

@@ -1,6 +1,6 @@
 use ab_glyph::{FontRef, PxScale};
 use glob::glob;
-use image::io::Reader as ImageReader;
+use image::ImageReader;
 use patch_tracker::PatchTracker;
 
 use image::Rgb;
