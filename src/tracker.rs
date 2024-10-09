@@ -9,7 +9,6 @@ use crate::{image_utilities, patch};
 
 use log::info;
 
-
 #[derive(Default)]
 pub struct PatchTracker<const N: u32> {
     last_keypoint_id: usize,
@@ -19,8 +18,6 @@ pub struct PatchTracker<const N: u32> {
 }
 impl<const LEVELS: u32> PatchTracker<LEVELS> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
-
-        env_logger::init();
         const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Nearest;
         // const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
         // build current image pyramid

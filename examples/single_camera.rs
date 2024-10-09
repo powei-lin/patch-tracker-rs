@@ -25,6 +25,8 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
+    env_logger::init();
+
     let path = args.folder;
     let path_list: Vec<PathBuf> = glob(format!("{}/*.png", path).as_str())
         .expect("Failed to read glob pattern")
