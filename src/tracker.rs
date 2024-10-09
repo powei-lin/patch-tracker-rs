@@ -7,6 +7,9 @@ use std::ops::AddAssign;
 
 use crate::{image_utilities, patch};
 
+use log::info;
+
+
 #[derive(Default)]
 pub struct PatchTracker<const N: u32> {
     last_keypoint_id: usize,
@@ -16,6 +19,8 @@ pub struct PatchTracker<const N: u32> {
 }
 impl<const LEVELS: u32> PatchTracker<LEVELS> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
+
+        env_logger::init();
         const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Nearest;
         // const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
         // build current image pyramid
@@ -31,14 +36,14 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             .collect();
 
         if self.initialized {
-            println!("old points {}", self.tracked_points_map.len());
+            info!("old points {}", self.tracked_points_map.len());
             // track prev points
             self.tracked_points_map = Self::track_points(
                 &self.previous_image_pyramid,
                 &current_image_pyramid,
                 &self.tracked_points_map,
             );
-            println!("tracked old points {}", self.tracked_points_map.len());
+            info!("tracked old points {}", self.tracked_points_map.len());
 
             // add new points
             self.add_points(greyscale_image);
