@@ -1,6 +1,6 @@
 [package]
 name = "patch-tracker"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Powei Lin <poweilin1994@gmail.com>"]
 readme = "README.md"
@@ -27,7 +27,6 @@ rayon = "1.10.0"
 [dev-dependencies]
 ab_glyph = "0.2.29"
 glob = "0.3.1"
-env_logger = "0.11.5"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 show-image = { version = "0.14.0", features = ["image"] }
