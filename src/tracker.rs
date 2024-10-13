@@ -12,27 +12,15 @@ use log::info;
 #[derive(Default)]
 pub struct PatchTracker<const N: u32> {
     last_keypoint_id: usize,
-    pub tracked_points_map: HashMap<usize, na::Affine2<f32>>,
+    tracked_points_map: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid: Vec<GrayImage>,
-    initialized: bool,
 }
 impl<const LEVELS: u32> PatchTracker<LEVELS> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
-        const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Nearest;
-        // const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
         // build current image pyramid
-        let (w, h) = greyscale_image.dimensions();
+        let current_image_pyramid: Vec<GrayImage> = build_image_pyramid(greyscale_image, LEVELS);
 
-        let current_image_pyramid: Vec<GrayImage> = (0..LEVELS)
-            .into_par_iter()
-            .map(|i| {
-                let scale_down: u32 = 1 << i;
-                let (new_w, new_h) = (w / scale_down, h / scale_down);
-                imageops::resize(greyscale_image, new_w, new_h, FILTER_TYPE)
-            })
-            .collect();
-
-        if self.initialized {
+        if !self.previous_image_pyramid.is_empty() {
             info!("old points {}", self.tracked_points_map.len());
             // track prev points
             self.tracked_points_map = track_points::<LEVELS>(
@@ -41,35 +29,121 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
                 &self.tracked_points_map,
             );
             info!("tracked old points {}", self.tracked_points_map.len());
+        }
+        // add new points
+        let new_points = add_points(&self.tracked_points_map, greyscale_image);
+        for point in &new_points {
+            let mut v = na::Affine2::<f32>::identity();
 
-            // add new points
-            let new_points = add_points(&self.tracked_points_map, greyscale_image);
-            for point in &new_points {
-                let mut v = na::Affine2::<f32>::identity();
-
-                v.matrix_mut_unchecked().m13 = point.x as f32;
-                v.matrix_mut_unchecked().m23 = point.y as f32;
-                self.tracked_points_map.insert(self.last_keypoint_id, v);
-                self.last_keypoint_id += 1;
-            }
-        } else {
-            // add new points
-            let new_points = add_points(&self.tracked_points_map, greyscale_image);
-            for point in &new_points {
-                let mut v = na::Affine2::<f32>::identity();
-
-                v.matrix_mut_unchecked().m13 = point.x as f32;
-                v.matrix_mut_unchecked().m23 = point.y as f32;
-                self.tracked_points_map.insert(self.last_keypoint_id, v);
-                self.last_keypoint_id += 1;
-            }
-            self.initialized = true;
+            v.matrix_mut_unchecked().m13 = point.x as f32;
+            v.matrix_mut_unchecked().m23 = point.y as f32;
+            self.tracked_points_map.insert(self.last_keypoint_id, v);
+            self.last_keypoint_id += 1;
         }
 
         // update saved image pyramid
         self.previous_image_pyramid = current_image_pyramid;
     }
+    pub fn get_track_points(&self) -> HashMap<usize, (f32, f32)> {
+        self.tracked_points_map
+            .iter()
+            .map(|(k, v)| (*k, (v.matrix().m13, v.matrix().m23)))
+            .collect()
+    }
 }
+
+#[derive(Default)]
+pub struct StereoPatchTracker<const N: u32> {
+    last_keypoint_id: usize,
+    tracked_points_map_cam0: HashMap<usize, na::Affine2<f32>>,
+    previous_image_pyramid0: Vec<GrayImage>,
+    tracked_points_map_cam1: HashMap<usize, na::Affine2<f32>>,
+    previous_image_pyramid1: Vec<GrayImage>,
+}
+
+impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
+    pub fn process_frame(&mut self, greyscale_image0: &GrayImage, greyscale_image1: &GrayImage) {
+        // build current image pyramid
+        let current_image_pyramid0: Vec<GrayImage> = build_image_pyramid(greyscale_image0, LEVELS);
+        let current_image_pyramid1: Vec<GrayImage> = build_image_pyramid(greyscale_image1, LEVELS);
+
+        // not initialized
+        if !self.previous_image_pyramid0.is_empty() {
+            info!("old points {}", self.tracked_points_map_cam0.len());
+            // track prev points
+            self.tracked_points_map_cam0 = track_points::<LEVELS>(
+                &self.previous_image_pyramid0,
+                &current_image_pyramid0,
+                &self.tracked_points_map_cam0,
+            );
+            self.tracked_points_map_cam1 = track_points::<LEVELS>(
+                &self.previous_image_pyramid1,
+                &current_image_pyramid1,
+                &self.tracked_points_map_cam1,
+            );
+            info!("tracked old points {}", self.tracked_points_map_cam0.len());
+        }
+        // add new points
+        let new_points0 = add_points(&self.tracked_points_map_cam0, greyscale_image0);
+        let tmp_tracked_points0: HashMap<usize, _> = new_points0
+            .iter()
+            .enumerate()
+            .map(|(i, point)| {
+                let mut v = na::Affine2::<f32>::identity();
+                v.matrix_mut_unchecked().m13 = point.x as f32;
+                v.matrix_mut_unchecked().m23 = point.y as f32;
+                (i, v)
+            })
+            .collect();
+
+        let tmp_tracked_points1 = track_points::<LEVELS>(
+            &current_image_pyramid0,
+            &current_image_pyramid1,
+            &tmp_tracked_points0,
+        );
+
+        for (key0, pt0) in tmp_tracked_points0 {
+            if let Some(pt1) = tmp_tracked_points1.get(&key0) {
+                self.tracked_points_map_cam0
+                    .insert(self.last_keypoint_id, pt0);
+                self.tracked_points_map_cam1
+                    .insert(self.last_keypoint_id, *pt1);
+                self.last_keypoint_id += 1;
+            }
+        }
+
+        // update saved image pyramid
+        self.previous_image_pyramid0 = current_image_pyramid0;
+        self.previous_image_pyramid1 = current_image_pyramid1;
+    }
+    pub fn get_track_points(&self) -> [HashMap<usize, (f32, f32)>; 2] {
+        let tracked_pts0 = self
+            .tracked_points_map_cam0
+            .iter()
+            .map(|(k, v)| (*k, (v.matrix().m13, v.matrix().m23)))
+            .collect();
+        let tracked_pts1 = self
+            .tracked_points_map_cam1
+            .iter()
+            .map(|(k, v)| (*k, (v.matrix().m13, v.matrix().m23)))
+            .collect();
+        [tracked_pts0, tracked_pts1]
+    }
+}
+
+fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<GrayImage> {
+    const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
+    let (w0, h0) = greyscale_image.dimensions();
+    (0..levels)
+        .into_par_iter()
+        .map(|i| {
+            let scale_down: u32 = 1 << i;
+            let (new_w, new_h) = (w0 / scale_down, h0 / scale_down);
+            imageops::resize(greyscale_image, new_w, new_h, FILTER_TYPE)
+        })
+        .collect()
+}
+
 fn add_points(
     tracked_points_map: &HashMap<usize, na::Affine2<f32>>,
     grayscale_image: &GrayImage,

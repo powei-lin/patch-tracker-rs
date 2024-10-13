@@ -1,6 +1,6 @@
 [package]
 name = "patch-tracker"
-version = "0.1.4"
+version = "0.2.0"
 edition = "2021"
 authors = ["Powei Lin <poweilin1994@gmail.com>"]
 readme = "README.md"
@@ -30,12 +30,16 @@ glob = "0.3.1"
 rand = "0.8.5"
 rand_chacha = "0.3.1"
 show-image = { version = "0.14.0", features = ["image"] }
-clap = { version = "4.5.19", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 
 
 [[example]]
 name = "single_camera"
 path = "examples/single_camera.rs"
+
+[[example]]
+name = "stereo_camera"
+path = "examples/stereo_camera.rs"
 
 [lib]
 name = "patch_tracker"
