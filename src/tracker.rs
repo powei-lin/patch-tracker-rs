@@ -50,6 +50,11 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             .map(|(k, v)| (*k, (v.matrix().m13, v.matrix().m23)))
             .collect()
     }
+    pub fn remove_id(&mut self, ids: &[usize]) {
+        for id in ids {
+            self.tracked_points_map.remove(id);
+        }
+    }
 }
 
 #[derive(Default)]
@@ -128,6 +133,12 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
             .map(|(k, v)| (*k, (v.matrix().m13, v.matrix().m23)))
             .collect();
         [tracked_pts0, tracked_pts1]
+    }
+    pub fn remove_id(&mut self, ids: &[usize]) {
+        for id in ids {
+            self.tracked_points_map_cam0.remove(id);
+            self.tracked_points_map_cam1.remove(id);
+        }
     }
 }
 
