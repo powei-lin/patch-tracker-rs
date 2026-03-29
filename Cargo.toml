@@ -33,11 +33,10 @@ nalgebra034 = ["dep:nalgebra"]
 [dev-dependencies]
 env_logger = "0.11"
 glob = "0.3.1"
-rand = "0.8.5"
-rand_chacha = "0.3.1"
 clap = { version = "4.6", features = ["derive"] }
 rerun = "0.30.2"
 diol = "0.13.1"
+fastrand = "2.3.0"
 
 
 [[example]]

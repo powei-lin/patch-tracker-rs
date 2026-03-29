@@ -2,8 +2,6 @@ use glob::glob;
 use image::ImageReader;
 use patch_tracker::StereoPatchTracker;
 
-use rand::prelude::*;
-use rand_chacha::ChaCha8Rng;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,8 +16,9 @@ struct Args {
 }
 
 fn id_to_color(id: u64) -> [u8; 3] {
-    let mut rng = ChaCha8Rng::seed_from_u64(id);
-    let color_num = rng.gen_range(0..2u32.pow(24));
+    const M: u32 = 2u32.pow(24);
+    fastrand::seed(id);
+    let color_num = fastrand::u32(0..M);
     [
         ((color_num >> 16) % 256) as u8,
         ((color_num >> 8) % 256) as u8,
