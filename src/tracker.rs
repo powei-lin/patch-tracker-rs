@@ -17,7 +17,7 @@ use crate::{
 use log::info;
 
 #[derive(Default)]
-pub struct PatchTracker<const N: u32 = 4, const GRID_SIZE: u32 = 20> {
+pub struct PatchTracker<const N: u32, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid: Vec<GrayImage>,
@@ -65,7 +65,7 @@ impl<const LEVELS: u32, const GRID_SIZE: u32> PatchTracker<LEVELS, GRID_SIZE> {
 }
 
 #[derive(Default)]
-pub struct StereoPatchTracker<const N: u32 = 4, const GRID_SIZE: u32 = 20> {
+pub struct StereoPatchTracker<const N: u32, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map_cam0: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid0: Vec<GrayImage>,
