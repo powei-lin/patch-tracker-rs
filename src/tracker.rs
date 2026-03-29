@@ -193,7 +193,7 @@ fn add_points(
     //   pts0.emplace_back(kv.second.translation().template cast<double>());
     // }
 }
-fn track_points<const LEVELS: u32>(
+pub fn track_points<const LEVELS: u32>(
     image_pyramid0: &[GrayImage],
     image_pyramid1: &[GrayImage],
     transform_maps0: &HashMap<usize, na::Affine2<f32>>,
@@ -221,7 +221,7 @@ fn track_points<const LEVELS: u32>(
 
     transform_maps1
 }
-fn track_one_point<const LEVELS: u32>(
+pub fn track_one_point<const LEVELS: u32>(
     image_pyramid0: &[GrayImage],
     image_pyramid1: &[GrayImage],
     transform0: &na::Affine2<f32>,
