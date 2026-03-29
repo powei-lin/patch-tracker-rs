@@ -1,6 +1,10 @@
 use image::{imageops, GrayImage};
 use imageproc::corners::Corner;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
+#[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::ops::AddAssign;

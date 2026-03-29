@@ -1,5 +1,5 @@
 use image::ImageReader;
-use patch_tracker::{build_image_pyramid, track_one_point, track_points, PatchTracker, Pattern52};
+use patch_tracker::{build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52};
 use std::collections::HashMap;
 
 fn load_test_images() -> (image::GrayImage, image::GrayImage) {
@@ -82,7 +82,7 @@ fn test_track_one_point_identity() {
 
     // Tracking from image to itself should return approximately the same position
     let (w, h) = img0.dimensions();
-    let mut transform0 = nalgebra::Affine2::<f32>::identity();
+    let mut transform0 = na::Affine2::<f32>::identity();
     transform0.matrix_mut_unchecked().m13 = w as f32 / 2.0;
     transform0.matrix_mut_unchecked().m23 = h as f32 / 2.0;
 
@@ -119,9 +119,9 @@ fn test_track_points_between_frames() {
         (w as f32 * 0.7, h as f32 * 0.7),
     ];
 
-    let mut transform_maps: HashMap<usize, nalgebra::Affine2<f32>> = HashMap::new();
+    let mut transform_maps: HashMap<usize, na::Affine2<f32>> = HashMap::new();
     for (i, (px, py)) in test_positions.iter().enumerate() {
-        let mut v = nalgebra::Affine2::<f32>::identity();
+        let mut v = na::Affine2::<f32>::identity();
         v.matrix_mut_unchecked().m13 = *px;
         v.matrix_mut_unchecked().m23 = *py;
         transform_maps.insert(i, v);
@@ -250,18 +250,18 @@ fn test_pattern52_residual_self() {
     assert!(pattern.valid);
 
     // Compute residual against itself at the same location -> residual should be near zero
-    let patten_coords = nalgebra::SMatrix::<f32, 52, 2>::from_fn(|i, j| {
+    let patten_coords = na::SMatrix::<f32, 52, 2>::from_fn(|i, j| {
         Pattern52::PATTERN_RAW[i][j] / pattern.pattern_scale_down
     })
     .transpose();
 
-    let transform = nalgebra::Affine2::<f32>::identity();
+    let transform = na::Affine2::<f32>::identity();
     let mut transformed_pat = transform.matrix().fixed_view::<2, 2>(0, 0) * patten_coords;
     for i in 0..52 {
         use std::ops::AddAssign;
         transformed_pat
             .column_mut(i)
-            .add_assign(nalgebra::SVector::<f32, 2>::new(cx, cy));
+            .add_assign(na::SVector::<f32, 2>::new(cx, cy));
     }
 
     let residual = pattern.residual(&img0, &transformed_pat);

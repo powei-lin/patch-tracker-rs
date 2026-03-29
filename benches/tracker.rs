@@ -1,6 +1,6 @@
 use diol::prelude::*;
 use image::{GrayImage, ImageReader};
-use patch_tracker::{build_image_pyramid, track_one_point, track_points, PatchTracker, Pattern52};
+use patch_tracker::{build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52};
 use std::collections::HashMap;
 
 fn read_test_image(path: &str) -> GrayImage {
@@ -37,11 +37,11 @@ fn bench_track_points(bencher: Bencher, num_points: usize) {
     tracker.process_frame(&img0);
     let all_points = tracker.get_track_points();
 
-    let transform_maps: HashMap<usize, nalgebra::Affine2<f32>> = all_points
+    let transform_maps: HashMap<usize, na::Affine2<f32>> = all_points
         .iter()
         .take(num_points)
         .map(|(&id, &(x, y))| {
-            let mut v = nalgebra::Affine2::<f32>::identity();
+            let mut v = na::Affine2::<f32>::identity();
             v.matrix_mut_unchecked().m13 = x;
             v.matrix_mut_unchecked().m23 = y;
             (id, v)
@@ -59,7 +59,7 @@ fn bench_track_one_point(bencher: Bencher, level: u32) {
     let pyramid1 = build_image_pyramid(&img1, level);
     let (w, h) = img0.dimensions();
 
-    let mut transform0 = nalgebra::Affine2::<f32>::identity();
+    let mut transform0 = na::Affine2::<f32>::identity();
     transform0.matrix_mut_unchecked().m13 = w as f32 / 2.0;
     transform0.matrix_mut_unchecked().m23 = h as f32 / 2.0;
 

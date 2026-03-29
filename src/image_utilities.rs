@@ -1,6 +1,10 @@
 use image::{GrayImage, Luma};
 use imageproc::corners::{corners_fast9, Corner};
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
+#[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+
 use rayon::prelude::*;
 
 pub type ImageLumaf32 = image::ImageBuffer<Luma<f32>, Vec<f32>>;
