@@ -41,5 +41,9 @@ path = "examples/single_camera.rs"
 name = "stereo_camera"
 path = "examples/stereo_camera.rs"
 
+[[bench]]
+name = "image_pyramid"
+harness = false
+
 [lib]
 name = "patch_tracker"
