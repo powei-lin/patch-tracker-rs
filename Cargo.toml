@@ -14,8 +14,6 @@ exclude = [
     "docs/*.avif",
 ]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "rayon"] }
 log = "0.4.22"
