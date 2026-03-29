@@ -1,5 +1,5 @@
-use image::imageops;
 use image::GrayImage;
+use image::imageops;
 #[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
 #[cfg(feature = "nalgebra033")]

@@ -1,5 +1,5 @@
 use crate::corners_fast9::Corner;
-use image::{imageops, GrayImage};
+use image::{GrayImage, imageops};
 #[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
 #[cfg(feature = "nalgebra033")]
@@ -219,14 +219,12 @@ pub fn track_points<const LEVELS: u32>(
                 // return Some((k.clone(), new_v));
                 if let Some(old_v) =
                     track_one_point::<LEVELS>(image_pyramid1, image_pyramid0, &new_v)
-                {
-                    if (v.matrix() - old_v.matrix())
+                    && (v.matrix() - old_v.matrix())
                         .fixed_view::<2, 1>(0, 2)
                         .norm_squared()
                         < 0.4
-                    {
-                        return Some((*k, new_v));
-                    }
+                {
+                    return Some((*k, new_v));
                 }
             }
             None

@@ -1,5 +1,5 @@
 use image::GrayImage;
-use wide::{i16x8, CmpGt, CmpLt};
+use wide::{CmpGt, CmpLt, i16x8};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Corner {
