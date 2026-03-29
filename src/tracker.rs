@@ -34,7 +34,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map.len());
         }
         // add new points
-        let new_points = add_points(&self.tracked_points_map, greyscale_image);
+        let new_points = add_points(&self.tracked_points_map, &current_image_pyramid);
         for point in &new_points {
             let mut v = na::Affine2::<f32>::identity();
 
@@ -92,7 +92,7 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map_cam0.len());
         }
         // add new points
-        let new_points0 = add_points(&self.tracked_points_map_cam0, greyscale_image0);
+        let new_points0 = add_points(&self.tracked_points_map_cam0, &current_image_pyramid0);
         let tmp_tracked_points0: HashMap<usize, _> = new_points0
             .iter()
             .enumerate()
@@ -165,7 +165,7 @@ pub fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<Gray
 
 fn add_points(
     tracked_points_map: &HashMap<usize, na::Affine2<f32>>,
-    grayscale_image: &GrayImage,
+    image_pyramid: &[GrayImage],
 ) -> Vec<Corner> {
     const GRID_SIZE: u32 = 50;
     let num_points_in_cell = 1;
@@ -180,8 +180,14 @@ fn add_points(
         })
         .collect();
     // let curr_img_luma8 = DynamicImage::ImageLuma16(grayscale_image.clone()).into_luma8();
+    let detect_level = if image_pyramid.len() > 1 { 1 } else { 0 };
+    let detect_image = &image_pyramid[detect_level];
+    let detect_scale = 1 << detect_level;
+
     image_utilities::detect_key_points(
-        grayscale_image,
+        &image_pyramid[0],
+        detect_image,
+        detect_scale,
         GRID_SIZE,
         &current_corners,
         num_points_in_cell,

@@ -1,4 +1,4 @@
-use image::{GenericImageView, GrayImage, Luma};
+use image::{GrayImage, Luma};
 use imageproc::corners::{corners_fast9, Corner};
 use nalgebra as na;
 use rayon::prelude::*;
@@ -303,69 +303,76 @@ pub fn se2_exp_matrix(a: &na::SVector<f32, 3>) -> na::SMatrix<f32, 3, 3> {
 
 pub fn detect_key_points(
     image: &GrayImage,
+    detect_image: &GrayImage,
+    detect_scale: u32,
     grid_size: u32,
     current_corners: &Vec<Corner>,
     num_points_in_cell: u32,
 ) -> Vec<Corner> {
     const EDGE_THRESHOLD: u32 = 19;
+    const MIN_THRESHOLD: u8 = 10;
     let h = image.height();
     let w = image.width();
-    let mut all_corners = vec![];
-    let mut grids =
-        na::DMatrix::<i32>::zeros((h / grid_size + 1) as usize, (w / grid_size + 1) as usize);
 
     let x_start = (w % grid_size) / 2;
-    let x_stop = x_start + grid_size * (w / grid_size - 1) + 1;
-
     let y_start = (h % grid_size) / 2;
-    let y_stop = y_start + grid_size * (h / grid_size - 1) + 1;
 
-    // add existing corners to grid
+    let grid_cols = (w / grid_size) as usize;
+    let grid_rows = (h / grid_size) as usize;
+
+    // Track how many points each cell already has
+    let mut grid_count = vec![0u32; grid_rows * grid_cols];
+
     for corner in current_corners {
-        if corner.x >= x_start
-            && corner.y >= y_start
-            && corner.x < x_stop + grid_size
-            && corner.y < y_stop + grid_size
-        {
-            let x = (corner.x - x_start) / grid_size;
-            let y = (corner.y - y_start) / grid_size;
-
-            grids[(y as usize, x as usize)] += 1;
-        }
-    }
-
-    for x in (x_start..x_stop).step_by(grid_size as usize) {
-        for y in (y_start..y_stop).step_by(grid_size as usize) {
-            if grids[(
-                ((y - y_start) / grid_size) as usize,
-                ((x - x_start) / grid_size) as usize,
-            )] > 0
-            {
-                continue;
-            }
-
-            let image_view = image.view(x, y, grid_size, grid_size).to_image();
-            let mut points_added = 0;
-            let mut threshold: u8 = 40;
-
-            while points_added < num_points_in_cell && threshold >= 10 {
-                let mut fast_corners = corners_fast9(&image_view, threshold);
-                fast_corners.sort_by(|a, b| a.score.partial_cmp(&b.score).unwrap());
-
-                for mut point in fast_corners {
-                    if points_added >= num_points_in_cell {
-                        break;
-                    }
-                    point.x += x;
-                    point.y += y;
-                    if point_in_bound(&point, h, w, EDGE_THRESHOLD) {
-                        all_corners.push(point);
-                        points_added += 1;
-                    }
-                }
-                threshold -= 5;
+        if corner.x >= x_start && corner.y >= y_start {
+            let gx = ((corner.x - x_start) / grid_size) as usize;
+            let gy = ((corner.y - y_start) / grid_size) as usize;
+            if gx < grid_cols && gy < grid_rows {
+                grid_count[gy * grid_cols + gx] += 1;
             }
         }
     }
-    all_corners
+
+    // Run FAST9 on the detection image (possibly lower resolution) once
+    let mut all_fast_corners = corners_fast9(detect_image, MIN_THRESHOLD);
+
+    // Sort descending by score to prioritize the strongest corners
+    all_fast_corners.sort_unstable_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Assign best corners to empty grid cells
+    let mut result = Vec::new();
+
+    for mut corner in all_fast_corners {
+        // Scale coordinates back to full resolution
+        corner.x *= detect_scale;
+        corner.y *= detect_scale;
+
+        if !point_in_bound(&corner, h, w, EDGE_THRESHOLD) {
+            continue;
+        }
+        if corner.x < x_start || corner.y < y_start {
+            continue;
+        }
+
+        let gx = ((corner.x - x_start) / grid_size) as usize;
+        let gy = ((corner.y - y_start) / grid_size) as usize;
+
+        if gx >= grid_cols || gy >= grid_rows {
+            continue;
+        }
+
+        let cell_idx = gy * grid_cols + gx;
+        if grid_count[cell_idx] >= num_points_in_cell {
+            continue;
+        }
+
+        grid_count[cell_idx] += 1;
+        result.push(corner);
+    }
+
+    result
 }

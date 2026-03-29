@@ -17,11 +17,12 @@ exclude = [
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-image = "0.25"
-imageproc = "0.26"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "rayon"] }
+imageproc = { version = "0.26", default-features = false }
 log = "0.4.22"
 nalgebra = "0.33.0"
 rayon = "1.10.0"
+wide = "1.2.0"
 
 [dev-dependencies]
 env_logger = "0.11"
@@ -43,6 +44,10 @@ path = "examples/stereo_camera.rs"
 
 [[bench]]
 name = "image_pyramid"
+harness = false
+
+[[bench]]
+name = "tracker"
 harness = false
 
 [lib]
