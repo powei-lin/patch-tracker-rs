@@ -1,21 +1,28 @@
-use image::{imageops, GrayImage};
-use imageproc::corners::Corner;
+use crate::corners_fast9::Corner;
+use image::{GrayImage, imageops};
+#[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
+
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::ops::AddAssign;
 
-use crate::{image_utilities, patch};
+use crate::{
+    image_utilities::{self, HalfSize},
+    patch,
+};
 
 use log::info;
 
 #[derive(Default)]
-pub struct PatchTracker<const N: u32> {
+pub struct PatchTracker<const N: u32, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid: Vec<GrayImage>,
 }
-impl<const LEVELS: u32> PatchTracker<LEVELS> {
+impl<const LEVELS: u32, const GRID_SIZE: u32> PatchTracker<LEVELS, GRID_SIZE> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid: Vec<GrayImage> = build_image_pyramid(greyscale_image, LEVELS);
@@ -31,7 +38,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map.len());
         }
         // add new points
-        let new_points = add_points(&self.tracked_points_map, greyscale_image);
+        let new_points = add_points(&self.tracked_points_map, &current_image_pyramid, GRID_SIZE);
         for point in &new_points {
             let mut v = na::Affine2::<f32>::identity();
 
@@ -58,7 +65,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
 }
 
 #[derive(Default)]
-pub struct StereoPatchTracker<const N: u32> {
+pub struct StereoPatchTracker<const N: u32, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map_cam0: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid0: Vec<GrayImage>,
@@ -66,7 +73,7 @@ pub struct StereoPatchTracker<const N: u32> {
     previous_image_pyramid1: Vec<GrayImage>,
 }
 
-impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
+impl<const LEVELS: u32, const GRID_SIZE: u32> StereoPatchTracker<LEVELS, GRID_SIZE> {
     pub fn process_frame(&mut self, greyscale_image0: &GrayImage, greyscale_image1: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid0: Vec<GrayImage> = build_image_pyramid(greyscale_image0, LEVELS);
@@ -89,7 +96,11 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map_cam0.len());
         }
         // add new points
-        let new_points0 = add_points(&self.tracked_points_map_cam0, greyscale_image0);
+        let new_points0 = add_points(
+            &self.tracked_points_map_cam0,
+            &current_image_pyramid0,
+            GRID_SIZE,
+        );
         let tmp_tracked_points0: HashMap<usize, _> = new_points0
             .iter()
             .enumerate()
@@ -142,24 +153,29 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
     }
 }
 
-fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<GrayImage> {
+pub fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<GrayImage> {
+    let mut out = Vec::with_capacity(levels as usize);
     const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
-    let (w0, h0) = greyscale_image.dimensions();
-    (0..levels)
-        .into_par_iter()
-        .map(|i| {
-            let scale_down: u32 = 1 << i;
-            let (new_w, new_h) = (w0 / scale_down, h0 / scale_down);
-            imageops::resize(greyscale_image, new_w, new_h, FILTER_TYPE)
-        })
-        .collect()
+    out.push(greyscale_image.clone());
+    (1..levels).for_each(|_| {
+        let last_img = out.last().unwrap();
+        let (w, h) = last_img.dimensions();
+        if w % 2 == 0 && h % 2 == 0 {
+            out.push(last_img.half_size());
+        } else {
+            let new_w = w / 2;
+            let new_h = h / 2;
+            out.push(imageops::resize(last_img, new_w, new_h, FILTER_TYPE))
+        }
+    });
+    out
 }
 
 fn add_points(
     tracked_points_map: &HashMap<usize, na::Affine2<f32>>,
-    grayscale_image: &GrayImage,
+    image_pyramid: &[GrayImage],
+    grid_size: u32,
 ) -> Vec<Corner> {
-    const GRID_SIZE: u32 = 50;
     let num_points_in_cell = 1;
     let current_corners: Vec<Corner> = tracked_points_map
         .values()
@@ -172,9 +188,15 @@ fn add_points(
         })
         .collect();
     // let curr_img_luma8 = DynamicImage::ImageLuma16(grayscale_image.clone()).into_luma8();
+    let detect_level = if image_pyramid.len() > 1 { 1 } else { 0 };
+    let detect_image = &image_pyramid[detect_level];
+    let detect_scale = 1 << detect_level;
+
     image_utilities::detect_key_points(
-        grayscale_image,
-        GRID_SIZE,
+        &image_pyramid[0],
+        detect_image,
+        detect_scale,
+        grid_size,
         &current_corners,
         num_points_in_cell,
     )
@@ -185,7 +207,7 @@ fn add_points(
     //   pts0.emplace_back(kv.second.translation().template cast<double>());
     // }
 }
-fn track_points<const LEVELS: u32>(
+pub fn track_points<const LEVELS: u32>(
     image_pyramid0: &[GrayImage],
     image_pyramid1: &[GrayImage],
     transform_maps0: &HashMap<usize, na::Affine2<f32>>,
@@ -197,14 +219,12 @@ fn track_points<const LEVELS: u32>(
                 // return Some((k.clone(), new_v));
                 if let Some(old_v) =
                     track_one_point::<LEVELS>(image_pyramid1, image_pyramid0, &new_v)
-                {
-                    if (v.matrix() - old_v.matrix())
+                    && (v.matrix() - old_v.matrix())
                         .fixed_view::<2, 1>(0, 2)
                         .norm_squared()
                         < 0.4
-                    {
-                        return Some((*k, new_v));
-                    }
+                {
+                    return Some((*k, new_v));
                 }
             }
             None
@@ -213,7 +233,7 @@ fn track_points<const LEVELS: u32>(
 
     transform_maps1
 }
-fn track_one_point<const LEVELS: u32>(
+pub fn track_one_point<const LEVELS: u32>(
     image_pyramid0: &[GrayImage],
     image_pyramid1: &[GrayImage],
     transform0: &na::Affine2<f32>,

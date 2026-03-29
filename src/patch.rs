@@ -1,7 +1,12 @@
-use image::imageops;
 use image::GrayImage;
+use image::imageops;
+#[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
+
 use std::ops::AddAssign;
+use wide::*;
 
 use crate::image_utilities;
 
@@ -96,8 +101,8 @@ impl Pattern52 {
 
                 self.data[i] = val_grad[0];
                 sum += val_grad[0];
-                let re = val_grad.fixed_rows::<2>(1).transpose() * jw_se2;
-                j_se2.set_row(i, &re);
+                let d_i_d_se2 = val_grad.fixed_rows::<2>(1).transpose() * jw_se2;
+                j_se2.set_row(i, &d_i_d_se2);
                 grad_sum_se2.add_assign(j_se2.fixed_rows::<1>(i).transpose());
                 num_valid_points += 1;
             } else {
@@ -109,15 +114,41 @@ impl Pattern52 {
 
         let mean_inv = num_valid_points as f32 / sum;
 
-        for i in 0..Self::PATTERN_RAW.len() {
-            if self.data[i] >= 0.0 {
-                let rhs = grad_sum_se2.transpose() * self.data[i] / sum;
-                j_se2.fixed_rows_mut::<1>(i).add_assign(-rhs);
-                self.data[i] *= mean_inv;
-            } else {
-                j_se2.set_row(i, &na::SMatrix::<f32, 1, 3>::zeros());
-            }
+        let grad_sum_se2_div_sum = grad_sum_se2 / sum;
+        let grad_sum_se2_div_sum_0 = f32x4::splat(grad_sum_se2_div_sum[0]);
+        let grad_sum_se2_div_sum_1 = f32x4::splat(grad_sum_se2_div_sum[1]);
+        let grad_sum_se2_div_sum_2 = f32x4::splat(grad_sum_se2_div_sum[2]);
+        let mean_inv_v = f32x4::splat(mean_inv);
+        let zero = f32x4::ZERO;
+
+        for i in (0..Self::PATTERN_RAW.len()).step_by(4) {
+            let mut data_v = f32x4::from(<[f32; 4]>::try_from(&self.data[i..i + 4]).unwrap());
+            let mask = data_v.simd_ge(zero);
+
+            // Update Jacobian columns
+            // Column 0
+            let mut col0 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(0).as_slice()[i..i + 4]).unwrap());
+            col0 = mask.blend(col0 - grad_sum_se2_div_sum_0 * data_v, zero);
+            j_se2.column_mut(0).as_mut_slice()[i..i + 4].copy_from_slice(&col0.to_array());
+
+            // Column 1
+            let mut col1 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(1).as_slice()[i..i + 4]).unwrap());
+            col1 = mask.blend(col1 - grad_sum_se2_div_sum_1 * data_v, zero);
+            j_se2.column_mut(1).as_mut_slice()[i..i + 4].copy_from_slice(&col1.to_array());
+
+            // Column 2
+            let mut col2 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(2).as_slice()[i..i + 4]).unwrap());
+            col2 = mask.blend(col2 - grad_sum_se2_div_sum_2 * data_v, zero);
+            j_se2.column_mut(2).as_mut_slice()[i..i + 4].copy_from_slice(&col2.to_array());
+
+            // Update data
+            data_v = mask.blend(data_v * mean_inv_v, data_v);
+            self.data[i..i + 4].copy_from_slice(&data_v.to_array());
         }
+
         *j_se2 *= mean_inv;
     }
     pub fn new(greyscale_image: &GrayImage, px: f32, py: f32) -> Pattern52 {
@@ -185,17 +216,20 @@ impl Pattern52 {
         }
 
         let mut num_residuals = 0;
+        let weight = f32x4::splat(num_valid_points as f32 / sum);
+        let zero = f32x4::ZERO;
 
-        for i in 0..PATTERN52_SIZE {
-            if residual[i] >= 0.0 && self.data[i] >= 0.0 {
-                let val = residual[i];
-                residual[i] = num_valid_points as f32 * val / sum - self.data[i];
-                num_residuals += 1;
-            } else {
-                residual[i] = 0.0;
-            }
+        for i in (0..PATTERN52_SIZE).step_by(4) {
+            let res_v = f32x4::from(<[f32; 4]>::try_from(&residual.as_slice()[i..i + 4]).unwrap());
+            let data_v = f32x4::from(<[f32; 4]>::try_from(&self.data[i..i + 4]).unwrap());
+
+            let mask = res_v.simd_ge(zero) & data_v.simd_ge(zero);
+            num_residuals += mask.to_bitmask().count_ones();
+
+            let final_res = mask.blend(weight * res_v - data_v, zero);
+            residual.as_mut_slice()[i..i + 4].copy_from_slice(&final_res.to_array());
         }
-        if num_residuals > PATTERN52_SIZE / 2 {
+        if num_residuals as usize > PATTERN52_SIZE / 2 {
             Some(residual)
         } else {
             None
