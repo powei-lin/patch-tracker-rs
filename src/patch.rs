@@ -96,8 +96,8 @@ impl Pattern52 {
 
                 self.data[i] = val_grad[0];
                 sum += val_grad[0];
-                let re = val_grad.fixed_rows::<2>(1).transpose() * jw_se2;
-                j_se2.set_row(i, &re);
+                let d_i_d_se2 = val_grad.fixed_rows::<2>(1).transpose() * jw_se2;
+                j_se2.set_row(i, &d_i_d_se2);
                 grad_sum_se2.add_assign(j_se2.fixed_rows::<1>(i).transpose());
                 num_valid_points += 1;
             } else {

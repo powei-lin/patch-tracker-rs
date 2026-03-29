@@ -5,7 +5,7 @@ use rayon::prelude::*;
 use std::collections::HashMap;
 use std::ops::AddAssign;
 
-use crate::{image_utilities, patch};
+use crate::{image_utilities::{self, HalfSize}, patch};
 
 use log::info;
 
@@ -143,16 +143,23 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
 }
 
 fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<GrayImage> {
+    let mut out = Vec::with_capacity(levels as usize);
     const FILTER_TYPE: imageops::FilterType = imageops::FilterType::Triangle;
-    let (w0, h0) = greyscale_image.dimensions();
-    (0..levels)
-        .into_par_iter()
-        .map(|i| {
-            let scale_down: u32 = 1 << i;
-            let (new_w, new_h) = (w0 / scale_down, h0 / scale_down);
-            imageops::resize(greyscale_image, new_w, new_h, FILTER_TYPE)
-        })
-        .collect()
+    out.push(greyscale_image.clone());
+    (1..levels).for_each(|_|{
+        let last_img = out.last().unwrap();
+        let (w, h) = last_img.dimensions();
+        if w % 2 == 0 && h %2 == 0{
+            out.push(last_img.half_size());
+        }
+        else{
+            let new_w = w / 2;
+            let new_h = h / 2;
+            out.push(imageops::resize(last_img, new_w, new_h, FILTER_TYPE))
+        }
+        
+    });
+    out
 }
 
 fn add_points(

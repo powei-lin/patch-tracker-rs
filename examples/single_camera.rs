@@ -1,15 +1,11 @@
-use ab_glyph::{FontRef, PxScale};
 use glob::glob;
 use image::ImageReader;
 use patch_tracker::PatchTracker;
 
-use image::Rgb;
-use imageproc::drawing::{draw_cross_mut, draw_text_mut};
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
-use show_image::{create_window, event};
 use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use clap::Parser;
 
@@ -31,77 +27,61 @@ fn id_to_color(id: u64) -> [u8; 3] {
     ]
 }
 
-#[show_image::main]
 fn main() {
     let args = Args::parse();
 
     env_logger::init();
 
     let path = args.folder;
-    let path_list: Vec<PathBuf> = glob(format!("{}/*.png", path).as_str())
+    let mut path_list: Vec<PathBuf> = glob(format!("{}/*.png", path).as_str())
         .expect("Failed to read glob pattern")
         .filter_map(Result::ok)
         .collect();
     if path_list.is_empty() {
         println!("there's no png in this folder.");
-        return;
+        path_list = glob(format!("{}/*.jpg", path).as_str())
+            .expect("Failed to read glob pattern")
+            .filter_map(Result::ok)
+            .collect();
+        if path_list.is_empty() {
+            println!("there's no jpg in this folder.");
+            return;
+        }
     }
-    let mut point_tracker = PatchTracker::<3>::default();
+    let mut point_tracker = PatchTracker::<5>::default();
 
     const FPS: u32 = 10;
-    let window = create_window("image", Default::default()).unwrap();
+    let start_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    let delta_time = 1.0 / FPS as f64;
+    let rec = rerun::RecordingStreamBuilder::new("single camera")
+        .spawn()
+        .unwrap();
 
-    for (i, event) in window.event_channel().unwrap().into_iter().enumerate() {
-        let start = Instant::now();
-        if i >= path_list.len() {
-            break;
-        }
-        let curr_img = ImageReader::open(&path_list[i]).unwrap().decode().unwrap();
+    for (i, path) in path_list.iter().enumerate() {
+        let curr_img = ImageReader::open(path).unwrap().decode().unwrap();
         let curr_img_luma8 = curr_img.to_luma8();
 
         point_tracker.process_frame(&curr_img_luma8);
 
-        // drawing
-        let mut curr_img_rgb = curr_img.to_rgb8();
-        let font = FontRef::try_from_slice(include_bytes!("DejaVuSans.ttf")).unwrap();
+        rec.set_timestamp_secs_since_epoch("stable_time", start_time + delta_time * i as f64);
+        rec.log("image", &rerun::EncodedImage::from_file(path).unwrap())
+            .unwrap();
 
-        let height = 10.0;
-        let scale = PxScale {
-            x: height,
-            y: height,
-        };
-
-        for (id, (x, y)) in point_tracker.get_track_points() {
-            let color = Rgb(id_to_color(id as u64));
-            draw_cross_mut(&mut curr_img_rgb, color, x.round() as i32, y.round() as i32);
-            let text = format!("{}", id);
-            draw_text_mut(
-                &mut curr_img_rgb,
-                color,
-                x as i32,
-                y as i32,
-                scale,
-                &font,
-                &text,
-            );
-        }
-        // let output_name = format!("output/{:05}.png", i);
-        // let _ = curr_img_rgb.save(output_name);
-
-        window.set_image("image-001", curr_img_rgb).unwrap();
-        if let event::WindowEvent::KeyboardInput(event) = event {
-            println!("{:#?}", event);
-            if event.input.key_code == Some(event::VirtualKeyCode::Escape)
-                && event.input.state.is_pressed()
-            {
-                break;
-            }
-        }
-        let duration = start.elapsed();
-
-        let one_frame = Duration::new(0, 1_000_000_000u32 / FPS);
-        if let Some(rest) = one_frame.checked_sub(duration) {
-            ::std::thread::sleep(rest);
-        }
+        let (colors, points): (Vec<_>, Vec<(f32, f32)>) = point_tracker
+            .get_track_points()
+            .iter()
+            .map(|(&id, &(x, y))| {
+                let color = id_to_color(id as u64);
+                (color, (x + 0.5, y + 0.5))
+            })
+            .unzip();
+        rec.log(
+            "image/points",
+            &rerun::Points2D::new(points).with_colors(colors),
+        )
+        .unwrap();
     }
 }
