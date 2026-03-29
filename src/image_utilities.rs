@@ -1,9 +1,9 @@
+use crate::corners_fast9::Corner;
 use image::{GrayImage, Luma};
-use imageproc::corners::{corners_fast9, Corner};
-#[cfg(feature = "nalgebra033")]
-use nalgebra_033 as na;
 #[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
 
 use rayon::prelude::*;
 
@@ -338,7 +338,8 @@ pub fn detect_key_points(
     }
 
     // Run FAST9 on the detection image (possibly lower resolution) once
-    let mut all_fast_corners = corners_fast9(detect_image, MIN_THRESHOLD);
+    let mut all_fast_corners =
+        crate::corners_fast9::simd_corners_fast9(detect_image, MIN_THRESHOLD);
 
     // Sort descending by score to prioritize the strongest corners
     all_fast_corners.sort_unstable_by(|a, b| {

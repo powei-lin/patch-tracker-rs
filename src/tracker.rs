@@ -1,9 +1,9 @@
+use crate::corners_fast9::Corner;
 use image::{imageops, GrayImage};
-use imageproc::corners::Corner;
-#[cfg(feature = "nalgebra033")]
-use nalgebra_033 as na;
 #[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
 
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -17,12 +17,12 @@ use crate::{
 use log::info;
 
 #[derive(Default)]
-pub struct PatchTracker<const N: u32> {
+pub struct PatchTracker<const N: u32 = 4, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid: Vec<GrayImage>,
 }
-impl<const LEVELS: u32> PatchTracker<LEVELS> {
+impl<const LEVELS: u32, const GRID_SIZE: u32> PatchTracker<LEVELS, GRID_SIZE> {
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid: Vec<GrayImage> = build_image_pyramid(greyscale_image, LEVELS);
@@ -38,7 +38,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map.len());
         }
         // add new points
-        let new_points = add_points(&self.tracked_points_map, &current_image_pyramid);
+        let new_points = add_points(&self.tracked_points_map, &current_image_pyramid, GRID_SIZE);
         for point in &new_points {
             let mut v = na::Affine2::<f32>::identity();
 
@@ -65,7 +65,7 @@ impl<const LEVELS: u32> PatchTracker<LEVELS> {
 }
 
 #[derive(Default)]
-pub struct StereoPatchTracker<const N: u32> {
+pub struct StereoPatchTracker<const N: u32 = 4, const GRID_SIZE: u32 = 20> {
     last_keypoint_id: usize,
     tracked_points_map_cam0: HashMap<usize, na::Affine2<f32>>,
     previous_image_pyramid0: Vec<GrayImage>,
@@ -73,7 +73,7 @@ pub struct StereoPatchTracker<const N: u32> {
     previous_image_pyramid1: Vec<GrayImage>,
 }
 
-impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
+impl<const LEVELS: u32, const GRID_SIZE: u32> StereoPatchTracker<LEVELS, GRID_SIZE> {
     pub fn process_frame(&mut self, greyscale_image0: &GrayImage, greyscale_image1: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid0: Vec<GrayImage> = build_image_pyramid(greyscale_image0, LEVELS);
@@ -96,7 +96,11 @@ impl<const LEVELS: u32> StereoPatchTracker<LEVELS> {
             info!("tracked old points {}", self.tracked_points_map_cam0.len());
         }
         // add new points
-        let new_points0 = add_points(&self.tracked_points_map_cam0, &current_image_pyramid0);
+        let new_points0 = add_points(
+            &self.tracked_points_map_cam0,
+            &current_image_pyramid0,
+            GRID_SIZE,
+        );
         let tmp_tracked_points0: HashMap<usize, _> = new_points0
             .iter()
             .enumerate()
@@ -170,8 +174,8 @@ pub fn build_image_pyramid(greyscale_image: &GrayImage, levels: u32) -> Vec<Gray
 fn add_points(
     tracked_points_map: &HashMap<usize, na::Affine2<f32>>,
     image_pyramid: &[GrayImage],
+    grid_size: u32,
 ) -> Vec<Corner> {
-    const GRID_SIZE: u32 = 50;
     let num_points_in_cell = 1;
     let current_corners: Vec<Corner> = tracked_points_map
         .values()
@@ -192,7 +196,7 @@ fn add_points(
         &image_pyramid[0],
         detect_image,
         detect_scale,
-        GRID_SIZE,
+        grid_size,
         &current_corners,
         num_points_in_cell,
     )

@@ -1,9 +1,9 @@
 use image::imageops;
 use image::GrayImage;
-#[cfg(feature = "nalgebra033")]
-use nalgebra_033 as na;
 #[cfg(all(not(feature = "nalgebra033"), feature = "nalgebra034"))]
 use nalgebra as na;
+#[cfg(feature = "nalgebra033")]
+use nalgebra_033 as na;
 
 use std::ops::AddAssign;
 use wide::*;
@@ -127,17 +127,20 @@ impl Pattern52 {
 
             // Update Jacobian columns
             // Column 0
-            let mut col0 = f32x4::from(<[f32; 4]>::try_from(&j_se2.column(0).as_slice()[i..i + 4]).unwrap());
+            let mut col0 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(0).as_slice()[i..i + 4]).unwrap());
             col0 = mask.blend(col0 - grad_sum_se2_div_sum_0 * data_v, zero);
             j_se2.column_mut(0).as_mut_slice()[i..i + 4].copy_from_slice(&col0.to_array());
 
             // Column 1
-            let mut col1 = f32x4::from(<[f32; 4]>::try_from(&j_se2.column(1).as_slice()[i..i + 4]).unwrap());
+            let mut col1 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(1).as_slice()[i..i + 4]).unwrap());
             col1 = mask.blend(col1 - grad_sum_se2_div_sum_1 * data_v, zero);
             j_se2.column_mut(1).as_mut_slice()[i..i + 4].copy_from_slice(&col1.to_array());
 
             // Column 2
-            let mut col2 = f32x4::from(<[f32; 4]>::try_from(&j_se2.column(2).as_slice()[i..i + 4]).unwrap());
+            let mut col2 =
+                f32x4::from(<[f32; 4]>::try_from(&j_se2.column(2).as_slice()[i..i + 4]).unwrap());
             col2 = mask.blend(col2 - grad_sum_se2_div_sum_2 * data_v, zero);
             j_se2.column_mut(2).as_mut_slice()[i..i + 4].copy_from_slice(&col2.to_array());
 

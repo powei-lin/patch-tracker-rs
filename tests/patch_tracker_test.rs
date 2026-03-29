@@ -1,5 +1,7 @@
 use image::ImageReader;
-use patch_tracker::{build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52};
+use patch_tracker::{
+    build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52,
+};
 use std::collections::HashMap;
 
 fn load_test_images() -> (image::GrayImage, image::GrayImage) {

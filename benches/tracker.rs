@@ -1,6 +1,8 @@
 use diol::prelude::*;
 use image::{GrayImage, ImageReader};
-use patch_tracker::{build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52};
+use patch_tracker::{
+    build_image_pyramid, na, track_one_point, track_points, PatchTracker, Pattern52,
+};
 use std::collections::HashMap;
 
 fn read_test_image(path: &str) -> GrayImage {
@@ -107,16 +109,8 @@ fn bench_pattern52_new(bencher: Bencher, _: ()) {
 fn main() -> eyre::Result<()> {
     let bench = Bench::from_args()?;
     bench.register("process_frame", bench_process_frame, [()]);
-    bench.register(
-        "track_points",
-        bench_track_points,
-        [10, 50, 100, 200],
-    );
-    bench.register(
-        "track_one_point",
-        bench_track_one_point,
-        [1, 2, 3, 4, 5],
-    );
+    bench.register("track_points", bench_track_points, [10, 50, 100, 200]);
+    bench.register("track_one_point", bench_track_one_point, [1, 2, 3, 4, 5]);
     bench.register("pattern52_new", bench_pattern52_new, [()]);
     bench.run()?;
     Ok(())
