@@ -23,4 +23,4 @@ dependencies = ["numpy"]
 [tool.maturin]
 module-name = "patch_tracker"
 features = ["python"]
-include = [{ path = "python/patch_tracker.pyi", format = "wheel" }]
+python-source = "python"

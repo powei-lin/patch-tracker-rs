@@ -18,7 +18,6 @@ import numpy as np
 
 import patch_tracker
 
-
 def id_to_color(track_id: int) -> tuple[int, int, int]:
     """Deterministic BGR color from track id."""
     rng = np.random.default_rng(track_id)
