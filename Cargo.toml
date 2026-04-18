@@ -1,6 +1,6 @@
 [package]
 name = "patch-tracker"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 authors = ["Powei Lin <poweilin1994@gmail.com>"]
 readme = "README.md"
@@ -17,6 +17,10 @@ exclude = [
     "tests/*",
 ]
 
+[lib]
+name = "patch_tracker"
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "rayon"] }
 log = "0.4.22"
@@ -24,11 +28,14 @@ nalgebra = { version = "0.34", optional = true }
 nalgebra_033 = { package = "nalgebra", version = "0.33", optional = true }
 rayon = "1.10.0"
 wide = "1.2.0"
+pyo3 = { version = "0.28", features = ["extension-module", "abi3", "abi3-py310"], optional = true }
+numpy = { version = "0.28", optional = true }
 
 [features]
 default = ["nalgebra034"]
 nalgebra033 = ["dep:nalgebra_033"]
 nalgebra034 = ["dep:nalgebra"]
+python = ["dep:pyo3", "dep:numpy", "nalgebra034"]
 
 
 [dev-dependencies]
@@ -55,6 +62,3 @@ harness = false
 [[bench]]
 name = "tracker"
 harness = false
-
-[lib]
-name = "patch_tracker"

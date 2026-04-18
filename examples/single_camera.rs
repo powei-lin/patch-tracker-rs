@@ -47,7 +47,7 @@ fn main() {
             return;
         }
     }
-    let mut point_tracker = PatchTracker::<4, 32>::default();
+    let mut point_tracker = PatchTracker::new(4, 32);
 
     const FPS: u32 = 10;
     let start_time = SystemTime::now()

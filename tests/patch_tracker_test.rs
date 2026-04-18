@@ -88,7 +88,7 @@ fn test_track_one_point_identity() {
     transform0.matrix_mut_unchecked().m13 = w as f32 / 2.0;
     transform0.matrix_mut_unchecked().m23 = h as f32 / 2.0;
 
-    let result = track_one_point::<4>(&pyramid0, &pyramid0, &transform0);
+    let result = track_one_point(&pyramid0, &pyramid0, &transform0);
     assert!(
         result.is_some(),
         "Tracking a point on the same image should succeed"
@@ -129,7 +129,7 @@ fn test_track_points_between_frames() {
         transform_maps.insert(i, v);
     }
 
-    let tracked = track_points::<4>(&pyramid0, &pyramid1, &transform_maps);
+    let tracked = track_points(&pyramid0, &pyramid1, &transform_maps);
 
     // Between two sequential frames, at least some points should be tracked successfully
     assert!(
@@ -151,7 +151,7 @@ fn test_track_points_between_frames() {
 #[test]
 fn test_patch_tracker_process_first_frame() {
     let (img0, _) = load_test_images();
-    let mut tracker = PatchTracker::<4>::default();
+    let mut tracker = PatchTracker::default();
 
     tracker.process_frame(&img0);
 
@@ -174,7 +174,7 @@ fn test_patch_tracker_process_first_frame() {
 #[test]
 fn test_patch_tracker_process_two_frames() {
     let (img0, img1) = load_test_images();
-    let mut tracker = PatchTracker::<4>::default();
+    let mut tracker = PatchTracker::default();
 
     tracker.process_frame(&img0);
     let points_after_first = tracker.get_track_points();
@@ -217,7 +217,7 @@ fn test_patch_tracker_process_two_frames() {
 #[test]
 fn test_patch_tracker_remove_id() {
     let (img0, _) = load_test_images();
-    let mut tracker = PatchTracker::<4>::default();
+    let mut tracker = PatchTracker::default();
 
     tracker.process_frame(&img0);
     let points = tracker.get_track_points();

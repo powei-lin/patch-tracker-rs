@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "patch-tracker"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dynamic = [
+  "version",
+  "description",
+  "readme",
+  "urls",
+  "license",
+  "keywords",
+]
+
+dependencies = ["numpy"]
+
+[tool.maturin]
+module-name = "patch_tracker"
+features = ["python"]
+python-source = "python"
