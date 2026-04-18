@@ -48,7 +48,7 @@ fn main() {
         println!("there's no png in this folder.");
         return;
     }
-    let mut point_tracker = StereoPatchTracker::<4>::default();
+    let mut point_tracker = StereoPatchTracker::new(4, 20);
 
     const FPS: u32 = 5;
     let start_time = SystemTime::now()

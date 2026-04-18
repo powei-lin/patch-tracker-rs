@@ -23,7 +23,7 @@ fn load_test_images() -> (GrayImage, GrayImage) {
 fn bench_process_frame(bencher: Bencher, _: ()) {
     let (img0, img1) = load_test_images();
     bencher.bench(|| {
-        let mut tracker = PatchTracker::<4>::default();
+        let mut tracker = PatchTracker::default();
         tracker.process_frame(&img0);
         tracker.process_frame(&img1);
     });
@@ -35,7 +35,7 @@ fn bench_track_points(bencher: Bencher, num_points: usize) {
     let pyramid1 = build_image_pyramid(&img1, 4);
 
     // Detect points from first frame and take num_points
-    let mut tracker = PatchTracker::<4>::default();
+    let mut tracker = PatchTracker::default();
     tracker.process_frame(&img0);
     let all_points = tracker.get_track_points();
 
@@ -51,7 +51,7 @@ fn bench_track_points(bencher: Bencher, num_points: usize) {
         .collect();
 
     bencher.bench(|| {
-        track_points::<4>(&pyramid0, &pyramid1, &transform_maps);
+        track_points(&pyramid0, &pyramid1, &transform_maps);
     });
 }
 
@@ -65,34 +65,9 @@ fn bench_track_one_point(bencher: Bencher, level: u32) {
     transform0.matrix_mut_unchecked().m13 = w as f32 / 2.0;
     transform0.matrix_mut_unchecked().m23 = h as f32 / 2.0;
 
-    match level {
-        1 => {
-            bencher.bench(|| {
-                track_one_point::<1>(&pyramid0, &pyramid1, &transform0);
-            });
-        }
-        2 => {
-            bencher.bench(|| {
-                track_one_point::<2>(&pyramid0, &pyramid1, &transform0);
-            });
-        }
-        3 => {
-            bencher.bench(|| {
-                track_one_point::<3>(&pyramid0, &pyramid1, &transform0);
-            });
-        }
-        4 => {
-            bencher.bench(|| {
-                track_one_point::<4>(&pyramid0, &pyramid1, &transform0);
-            });
-        }
-        5 => {
-            bencher.bench(|| {
-                track_one_point::<5>(&pyramid0, &pyramid1, &transform0);
-            });
-        }
-        _ => panic!("unsupported level {level}"),
-    }
+    bencher.bench(|| {
+        track_one_point(&pyramid0, &pyramid1, &transform0);
+    });
 }
 
 fn bench_pattern52_new(bencher: Bencher, _: ()) {
