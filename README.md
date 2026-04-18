@@ -1,11 +1,19 @@
 # patch-tracker-rs
 [![crate](https://img.shields.io/crates/v/patch-tracker.svg)](https://crates.io/crates/patch-tracker)
+[![PyPI - Version](https://img.shields.io/pypi/v/patch-tracker.svg)](https://pypi.org/project/patch-tracker)
 
 ```rust
 use patch_tracker::PatchTracker;
 
-let mut point_tracker = PatchTracker::<4>::default();
+let mut point_tracker = PatchTracker::default();
 point_tracker.process_frame(&img_luma8);
+```
+
+```python
+from patch_tracker import PatchTracker
+tracker = PatchTracker()
+tracker.process_frame(gray)
+pts = tracker.get_track_points()
 ```
 
 # Example
