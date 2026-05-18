@@ -30,12 +30,14 @@ rayon = "1.10.0"
 wide = "1.2.0"
 pyo3 = { version = "0.28", features = ["extension-module", "abi3", "abi3-py310"], optional = true }
 numpy = { version = "0.28", optional = true }
+ort = { version = "2.0.0-rc.12", features = ["coreml"], optional = true }
 
 [features]
 default = ["nalgebra034"]
 nalgebra033 = ["dep:nalgebra_033"]
 nalgebra034 = ["dep:nalgebra"]
 python = ["dep:pyo3", "dep:numpy", "nalgebra034"]
+magic_point = ["dep:ort"]
 
 
 [dev-dependencies]
@@ -50,10 +52,12 @@ fastrand = "2.3.0"
 [[example]]
 name = "single_camera"
 path = "examples/single_camera.rs"
+required-features = ["magic_point"]
 
 [[example]]
 name = "stereo_camera"
 path = "examples/stereo_camera.rs"
+required-features = ["magic_point"]
 
 [[bench]]
 name = "image_pyramid"

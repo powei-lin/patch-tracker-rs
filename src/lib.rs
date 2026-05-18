@@ -1,5 +1,7 @@
 pub mod corners_fast9;
 pub mod image_utilities;
+#[cfg(feature = "magic_point")]
+pub mod magic_point;
 pub mod patch;
 pub mod tracker;
 

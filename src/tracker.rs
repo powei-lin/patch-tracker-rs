@@ -22,6 +22,8 @@ pub struct PatchTracker {
     previous_image_pyramid: Vec<GrayImage>,
     grid_size: u32,
     levels: u32,
+    #[cfg(feature = "magic_point")]
+    magic_point_detector: Option<crate::magic_point::MagicPointDetector>,
 }
 impl Default for PatchTracker {
     fn default() -> Self {
@@ -36,8 +38,52 @@ impl PatchTracker {
             previous_image_pyramid: Vec::new(),
             grid_size,
             levels,
+            #[cfg(feature = "magic_point")]
+            magic_point_detector: None,
         }
     }
+
+    /// Enable MagicPoint keypoint detection backed by an ONNX model loaded with
+    /// ONNX Runtime (CoreML acceleration on Apple platforms).
+    /// When active, the detection grid is fixed at [`crate::magic_point::CELL_SIZE`] (8).
+    #[cfg(feature = "magic_point")]
+    pub fn with_magic_point(mut self) -> Result<Self, ort::Error> {
+        self.magic_point_detector = Some(crate::magic_point::MagicPointDetector::new()?);
+        Ok(self)
+    }
+
+    /// Same as [`with_magic_point`] but also sets a minimum score threshold to
+    /// filter low-confidence detections. `threshold` must be in `(0, 1]`.
+    #[cfg(feature = "magic_point")]
+    pub fn with_magic_point_threshold(
+        mut self,
+        threshold: f32,
+    ) -> Result<Self, ort::Error> {
+        self.magic_point_detector = Some(
+            crate::magic_point::MagicPointDetector::new()?.with_threshold(threshold),
+        );
+        Ok(self)
+    }
+
+    fn run_detect(&mut self, image_pyramid: &[GrayImage]) -> Vec<Corner> {
+        #[cfg(feature = "magic_point")]
+        if let Some(ref mut detector) = self.magic_point_detector {
+            let current_corners: Vec<Corner> = self
+                .tracked_points_map
+                .values()
+                .map(|v| {
+                    Corner::new(
+                        v.matrix().m13.round() as u32,
+                        v.matrix().m23.round() as u32,
+                        0.0,
+                    )
+                })
+                .collect();
+            return detector.detect(&image_pyramid[0], &current_corners);
+        }
+        detect_keypoints(&self.tracked_points_map, image_pyramid, self.grid_size)
+    }
+
     pub fn process_frame(&mut self, greyscale_image: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid: Vec<GrayImage> =
@@ -54,11 +100,7 @@ impl PatchTracker {
             info!("tracked old points {}", self.tracked_points_map.len());
         }
         // add new points
-        let new_points = detect_keypoints(
-            &self.tracked_points_map,
-            &current_image_pyramid,
-            self.grid_size,
-        );
+        let new_points = self.run_detect(&current_image_pyramid);
         for point in &new_points {
             let mut v = na::Affine2::<f32>::identity();
 
@@ -101,6 +143,8 @@ pub struct StereoPatchTracker {
     previous_image_pyramid1: Vec<GrayImage>,
     grid_size: u32,
     levels: u32,
+    #[cfg(feature = "magic_point")]
+    magic_point_detector: Option<crate::magic_point::MagicPointDetector>,
 }
 impl Default for StereoPatchTracker {
     fn default() -> Self {
@@ -117,8 +161,45 @@ impl StereoPatchTracker {
             previous_image_pyramid1: Vec::new(),
             grid_size,
             levels,
+            #[cfg(feature = "magic_point")]
+            magic_point_detector: None,
         }
     }
+
+    /// Enable MagicPoint keypoint detection for both cameras.
+    #[cfg(feature = "magic_point")]
+    pub fn with_magic_point(mut self) -> Result<Self, ort::Error> {
+        self.magic_point_detector = Some(crate::magic_point::MagicPointDetector::new()?);
+        Ok(self)
+    }
+
+    /// Same as [`with_magic_point`] but also sets a minimum score threshold.
+    #[cfg(feature = "magic_point")]
+    pub fn with_magic_point_threshold(mut self, threshold: f32) -> Result<Self, ort::Error> {
+        self.magic_point_detector =
+            Some(crate::magic_point::MagicPointDetector::new()?.with_threshold(threshold));
+        Ok(self)
+    }
+
+    fn run_detect_cam0(&mut self, image_pyramid: &[GrayImage]) -> Vec<Corner> {
+        #[cfg(feature = "magic_point")]
+        if let Some(ref mut detector) = self.magic_point_detector {
+            let current_corners: Vec<Corner> = self
+                .tracked_points_map_cam0
+                .values()
+                .map(|v| {
+                    Corner::new(
+                        v.matrix().m13.round() as u32,
+                        v.matrix().m23.round() as u32,
+                        0.0,
+                    )
+                })
+                .collect();
+            return detector.detect(&image_pyramid[0], &current_corners);
+        }
+        detect_keypoints(&self.tracked_points_map_cam0, image_pyramid, self.grid_size)
+    }
+
     pub fn process_frame(&mut self, greyscale_image0: &GrayImage, greyscale_image1: &GrayImage) {
         // build current image pyramid
         let current_image_pyramid0: Vec<GrayImage> =
@@ -143,11 +224,7 @@ impl StereoPatchTracker {
             info!("tracked old points {}", self.tracked_points_map_cam0.len());
         }
         // add new points
-        let new_points0 = detect_keypoints(
-            &self.tracked_points_map_cam0,
-            &current_image_pyramid0,
-            self.grid_size,
-        );
+        let new_points0 = self.run_detect_cam0(&current_image_pyramid0);
         let tmp_tracked_points0: HashMap<usize, _> = new_points0
             .iter()
             .enumerate()

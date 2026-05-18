@@ -47,7 +47,13 @@ fn main() {
             return;
         }
     }
-    let mut point_tracker = PatchTracker::new(4, 32);
+    // let mut point_tracker = PatchTracker::new(4, 32);
+    let mut point_tracker = PatchTracker::new(4, 20)
+        .with_magic_point_threshold(0.5)
+        .unwrap();
+
+    let mut prev_points: std::collections::HashMap<usize, (f32, f32)> =
+        std::collections::HashMap::new();
 
     const FPS: u32 = 10;
     let start_time = SystemTime::now()
@@ -56,7 +62,10 @@ fn main() {
         .as_secs_f64();
     let delta_time = 1.0 / FPS as f64;
     let rec = rerun::RecordingStreamBuilder::new("single camera")
-        .spawn()
+        .spawn_opts(&rerun::SpawnOptions {
+            port: 9875,
+            ..Default::default()
+        })
         .unwrap();
 
     for (i, path) in path_list.iter().enumerate() {
@@ -69,8 +78,9 @@ fn main() {
         rec.log("image", &rerun::EncodedImage::from_file(path).unwrap())
             .unwrap();
 
-        let (colors, points): (Vec<_>, Vec<(f32, f32)>) = point_tracker
-            .get_track_points()
+        let curr_points = point_tracker.get_track_points();
+
+        let (colors, points): (Vec<_>, Vec<(f32, f32)>) = curr_points
             .iter()
             .map(|(&id, &(x, y))| {
                 let color = id_to_color(id as u64);
@@ -82,5 +92,25 @@ fn main() {
             &rerun::Points2D::new(points).with_colors(colors),
         )
         .unwrap();
+
+        let mut line_strips = Vec::new();
+        let mut line_colors = Vec::new();
+
+        for (&id, &(curr_x, curr_y)) in &curr_points {
+            if let Some(&(prev_x, prev_y)) = prev_points.get(&id) {
+                line_strips.push([(prev_x + 0.5, prev_y + 0.5), (curr_x + 0.5, curr_y + 0.5)]);
+                line_colors.push(id_to_color(id as u64));
+            }
+        }
+
+        if !line_strips.is_empty() {
+            rec.log(
+                "image/lines",
+                &rerun::LineStrips2D::new(line_strips).with_colors(line_colors),
+            )
+            .unwrap();
+        }
+
+        prev_points = curr_points;
     }
 }

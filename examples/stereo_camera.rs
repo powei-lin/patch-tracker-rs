@@ -48,7 +48,15 @@ fn main() {
         println!("there's no png in this folder.");
         return;
     }
-    let mut point_tracker = StereoPatchTracker::new(4, 20);
+    // let mut point_tracker = StereoPatchTracker::new(5, 16);
+    let mut point_tracker = StereoPatchTracker::new(5, 8)
+        .with_magic_point_threshold(0.5)
+        .unwrap();
+
+    let mut prev_points0: std::collections::HashMap<usize, (f32, f32)> =
+        std::collections::HashMap::new();
+    let mut prev_points1: std::collections::HashMap<usize, (f32, f32)> =
+        std::collections::HashMap::new();
 
     const FPS: u32 = 5;
     let start_time = SystemTime::now()
@@ -57,7 +65,10 @@ fn main() {
         .as_secs_f64();
     let delta_time = 1.0 / FPS as f64;
     let rec = rerun::RecordingStreamBuilder::new("single camera")
-        .spawn()
+        .spawn_opts(&rerun::SpawnOptions {
+            port: 9875,
+            ..Default::default()
+        })
         .unwrap();
 
     for (i, (path0, path1)) in path_list0.iter().zip(path_list1.iter()).enumerate() {
@@ -74,11 +85,13 @@ fn main() {
         rec.set_timestamp_secs_since_epoch("stable_time", start_time + delta_time * i as f64);
         rec.log("image0", &rerun::EncodedImage::from_file(path0).unwrap())
             .unwrap();
-        rec.log("image1", &rerun::EncodedImage::from_file(path0).unwrap())
+        rec.log("image1", &rerun::EncodedImage::from_file(path1).unwrap())
             .unwrap();
 
-        let [tracked_pts0, tracked_pts1] = point_tracker.get_track_points();
-        let (colors, points): (Vec<_>, Vec<(f32, f32)>) = tracked_pts0
+        let [curr_points0, curr_points1] = point_tracker.get_track_points();
+
+        // Cam0 points and lines
+        let (colors0, points0): (Vec<_>, Vec<(f32, f32)>) = curr_points0
             .iter()
             .map(|(&id, &(x, y))| {
                 let color = id_to_color(id as u64);
@@ -87,10 +100,28 @@ fn main() {
             .unzip();
         rec.log(
             "image0/points",
-            &rerun::Points2D::new(points).with_colors(colors),
+            &rerun::Points2D::new(points0).with_colors(colors0),
         )
         .unwrap();
-        let (colors, points): (Vec<_>, Vec<(f32, f32)>) = tracked_pts1
+
+        let mut line_strips0 = Vec::new();
+        let mut line_colors0 = Vec::new();
+        for (&id, &(curr_x, curr_y)) in &curr_points0 {
+            if let Some(&(prev_x, prev_y)) = prev_points0.get(&id) {
+                line_strips0.push([(prev_x + 0.5, prev_y + 0.5), (curr_x + 0.5, curr_y + 0.5)]);
+                line_colors0.push(id_to_color(id as u64));
+            }
+        }
+        if !line_strips0.is_empty() {
+            rec.log(
+                "image0/lines",
+                &rerun::LineStrips2D::new(line_strips0).with_colors(line_colors0),
+            )
+            .unwrap();
+        }
+
+        // Cam1 points and lines
+        let (colors1, points1): (Vec<_>, Vec<(f32, f32)>) = curr_points1
             .iter()
             .map(|(&id, &(x, y))| {
                 let color = id_to_color(id as u64);
@@ -99,8 +130,27 @@ fn main() {
             .unzip();
         rec.log(
             "image1/points",
-            &rerun::Points2D::new(points).with_colors(colors),
+            &rerun::Points2D::new(points1).with_colors(colors1),
         )
         .unwrap();
+
+        let mut line_strips1 = Vec::new();
+        let mut line_colors1 = Vec::new();
+        for (&id, &(curr_x, curr_y)) in &curr_points1 {
+            if let Some(&(prev_x, prev_y)) = prev_points1.get(&id) {
+                line_strips1.push([(prev_x + 0.5, prev_y + 0.5), (curr_x + 0.5, curr_y + 0.5)]);
+                line_colors1.push(id_to_color(id as u64));
+            }
+        }
+        if !line_strips1.is_empty() {
+            rec.log(
+                "image1/lines",
+                &rerun::LineStrips2D::new(line_strips1).with_colors(line_colors1),
+            )
+            .unwrap();
+        }
+
+        prev_points0 = curr_points0;
+        prev_points1 = curr_points1;
     }
 }
